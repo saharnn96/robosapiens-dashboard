@@ -7,9 +7,9 @@ r = redis.Redis(host='localhost', port=6379, decode_responses=True, db=6)
 # Example device/component data
 devices = ['Device1', 'Device2', 'Device3']
 components = {
-    'Device1': ['Component1', 'Component2'],
-    'Device2': ['Component3', 'Component4'],
-    'Device3': ['Component5']
+    'Device1': ['Monitor', 'Execute'],
+    'Device2': ['Analysis', 'Plan'],
+    'Device3': ['Legitimate']
 }
 
 # # Set devices list
