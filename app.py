@@ -16,25 +16,127 @@ app = dash.Dash(__name__)
 app.title = "RoboSAPIENS Adaptive Platform Dashboard"
 
 app.layout = html.Div([
-    html.H1("RoboSAPIENS Adaptive Platform Dashboard", style={'textAlign': 'center'}),
-    html.H3("Components Activation Gantt Chart", style={'textAlign': 'center'}),
-    dcc.Graph(id="gantt-chart"),
-    dcc.Interval(id='interval-gantt', interval=1000, n_intervals=0),
-
+    # Header Section
     html.Div([
-        html.Div(id='processor-cards', style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '20px'}),
+        html.H1("RoboSAPIENS Adaptive Platform Dashboard", 
+                style={
+                    'textAlign': 'center', 
+                    'color': '#2c3e50',
+                    'marginBottom': '10px',
+                    'fontWeight': '300',
+                    'fontSize': '2.5rem'
+                }),
+        html.P("Real-time monitoring and control of distributed components", 
+               style={
+                   'textAlign': 'center', 
+                   'color': '#7f8c8d',
+                   'marginBottom': '30px',
+                   'fontSize': '1.1rem'
+               })
+    ], style={
+        'background': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'padding': '40px 20px',
+        'marginBottom': '30px',
+        'borderRadius': '0 0 15px 15px',
+        'boxShadow': '0 4px 6px rgba(0, 0, 0, 0.1)'
+    }),
+
+    # Gantt Chart Section
+    html.Div([
+        html.H3("Components Activation Timeline", 
+                style={
+                    'color': '#2c3e50',
+                    'marginBottom': '20px',
+                    'fontWeight': '400'
+                }),
+        dcc.Graph(id="gantt-chart", style={'height': '400px'})
+    ], style={
+        'backgroundColor': '#ffffff',
+        'padding': '25px',
+        'marginBottom': '30px',
+        'borderRadius': '10px',
+        'boxShadow': '0 2px 10px rgba(0, 0, 0, 0.08)',
+        'border': '1px solid #e9ecef'
+    }),
+
+    # Device Cards Section
+    html.Div([
         html.Div([
-            html.Button('+', id='add-processor-btn', title='Add Processor', style={'fontSize': '24px', 'width': '50px', 'height': '50px'}),
-            # html.Div("Add Processor", style={'textAlign': 'center'})
-        ], style={'margin': '10px', 'textAlign': 'center'})
-    ], style={'display': 'flex', 'flexDirection': 'row', 'alignItems': 'flex-start'}),
+            html.H3("Device Status", 
+                    style={
+                        'color': '#2c3e50',
+                        'marginBottom': '20px',
+                        'fontWeight': '400',
+                        'display': 'inline-block'
+                    }),
+            html.Button('+ Add Device', 
+                       id='add-processor-btn', 
+                       style={
+                           'backgroundColor': '#3498db',
+                           'color': 'white',
+                           'border': 'none',
+                           'padding': '8px 16px',
+                           'borderRadius': '5px',
+                           'cursor': 'pointer',
+                           'fontSize': '14px',
+                           'float': 'right',
+                           'transition': 'all 0.3s ease'
+                       })
+        ], style={'marginBottom': '20px'}),
+        html.Div(id='processor-cards', 
+                style={
+                    'display': 'grid', 
+                    'gridTemplateColumns': 'repeat(auto-fill, minmax(280px, 1fr))', 
+                    'gap': '20px'
+                })
+    ], style={
+        'backgroundColor': '#ffffff',
+        'padding': '25px',
+        'marginBottom': '30px',
+        'borderRadius': '10px',
+        'boxShadow': '0 2px 10px rgba(0, 0, 0, 0.08)',
+        'border': '1px solid #e9ecef'
+    }),
 
-    html.H3("Logs"),
-    html.Pre(id='live-log', style={'height': '200px', 'overflowY': 'scroll', 'border': '1px solid #ccc'}),
+    # Logs Section
+    html.Div([
+        html.H3("System Logs", 
+                style={
+                    'color': '#2c3e50',
+                    'marginBottom': '20px',
+                    'fontWeight': '400'
+                }),
+        html.Pre(id='live-log', 
+                style={
+                    'height': '250px', 
+                    'overflowY': 'auto', 
+                    'backgroundColor': '#f8f9fa',
+                    'border': '1px solid #dee2e6',
+                    'borderRadius': '5px',
+                    'padding': '15px',
+                    'fontFamily': 'Monaco, Consolas, "Courier New", monospace',
+                    'fontSize': '12px',
+                    'lineHeight': '1.4'
+                })
+    ], style={
+        'backgroundColor': '#ffffff',
+        'padding': '25px',
+        'borderRadius': '10px',
+        'boxShadow': '0 2px 10px rgba(0, 0, 0, 0.08)',
+        'border': '1px solid #e9ecef'
+    }),
 
+    # Intervals
+    dcc.Interval(id='interval-gantt', interval=1000, n_intervals=0),
     dcc.Interval(id='interval-redis', interval=2000, n_intervals=0),
     dcc.Interval(id='interval-log', interval=1000, n_intervals=0)
-])
+], style={
+    'backgroundColor': '#f5f6fa',
+    'minHeight': '100vh',
+    'padding': '0',
+    'margin': '0',
+    'fontFamily': '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
+})
 
 @app.callback(
     Output("gantt-chart", "figure"),
@@ -75,13 +177,21 @@ def update_gantt(_):
                 continue
 
     fig.update_layout(
-        title="MAPE-K Phases Timeline (Last 10 Seconds)",
+        title={
+            'text': "MAPE-K Phases Timeline (Last 10 Seconds)",
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 16, 'color': '#2c3e50'}
+        },
         xaxis_title="Time (seconds)",
-        yaxis_title="Phases",
+        yaxis_title="Components",
         barmode="overlay",
-        template="plotly",
+        template="plotly_white",
         showlegend=False,
-        plot_bgcolor="rgba(240, 240, 240, 1)"  # Light gray background
+        plot_bgcolor="rgba(248, 249, 250, 1)",
+        paper_bgcolor="rgba(255, 255, 255, 1)",
+        font={'family': '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'},
+        margin={'l': 80, 'r': 20, 't': 60, 'b': 60}
     )
     return fig
 
@@ -136,26 +246,152 @@ def update_processors(_):
                 status_text = "⚪ Stopped"
                 status_color = "gray"
             comp_list.append(html.Div([
-                html.Span(comp, style={'marginRight': '10px', 'fontWeight': 'bold'}),
-                html.Span(status_text, style={'color': status_color, 'marginRight': '10px'}),
-                html.Button('▶️', id={'type': 'run-comp-btn', 'proc': device, 'comp': comp}),
-                html.Button('⏸️', id={'type': 'pause-comp-btn', 'proc': device, 'comp': comp}),
-                html.Button('❌', id={'type': 'del-comp-btn', 'proc': device, 'comp': comp}, disabled=True, title='Delete disabled')
-            ], style={'display': 'flex', 'alignItems': 'center', 'gap': '5px', 'border': '1px solid #bbb', 'borderRadius': '5px', 'padding': '4px', 'marginBottom': '6px', 'background': '#fafafa'}))
+                html.Div([
+                    html.Span(comp, style={
+                        'fontWeight': '600', 
+                        'color': '#2c3e50',
+                        'fontSize': '14px'
+                    }),
+                    html.Span(status_text, style={
+                        'color': status_color, 
+                        'fontWeight': '500',
+                        'fontSize': '12px',
+                        'marginLeft': '8px'
+                    })
+                ], style={'marginBottom': '8px'}),
+                html.Div([
+                    html.Button('▶️', 
+                               id={'type': 'run-comp-btn', 'proc': device, 'comp': comp},
+                               style={
+                                   'backgroundColor': '#27ae60',
+                                   'color': 'white',
+                                   'border': 'none',
+                                   'borderRadius': '4px',
+                                   'padding': '4px 8px',
+                                   'marginRight': '4px',
+                                   'cursor': 'pointer',
+                                   'fontSize': '12px'
+                               }),
+                    html.Button('⏸️', 
+                               id={'type': 'pause-comp-btn', 'proc': device, 'comp': comp},
+                               style={
+                                   'backgroundColor': '#f39c12',
+                                   'color': 'white',
+                                   'border': 'none',
+                                   'borderRadius': '4px',
+                                   'padding': '4px 8px',
+                                   'marginRight': '4px',
+                                   'cursor': 'pointer',
+                                   'fontSize': '12px'
+                               }),
+                    html.Button('❌', 
+                               id={'type': 'del-comp-btn', 'proc': device, 'comp': comp}, 
+                               disabled=True,
+                               style={
+                                   'backgroundColor': '#bdc3c7',
+                                   'color': 'white',
+                                   'border': 'none',
+                                   'borderRadius': '4px',
+                                   'padding': '4px 8px',
+                                   'cursor': 'not-allowed',
+                                   'fontSize': '12px'
+                               })
+                ])
+            ], style={
+                'backgroundColor': '#f8f9fa',
+                'border': '1px solid #e9ecef',
+                'borderRadius': '8px',
+                'padding': '12px',
+                'marginBottom': '8px',
+                'transition': 'all 0.2s ease'
+            }))
 
         cards.append(html.Div([
+            # Device Header
             html.Div([
-                html.H4(device, style={'marginBottom': 0}),
-                html.Button('❌', id={'type': 'del-proc-btn', 'proc': device}, style={'float': 'right', 'marginLeft': 'auto'}, disabled=True, title='Delete disabled'),
-            ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between'}),
+                html.H4(device, style={
+                    'margin': '0',
+                    'color': '#2c3e50',
+                    'fontSize': '18px',
+                    'fontWeight': '600'
+                }),
+                html.Button('❌', 
+                           id={'type': 'del-proc-btn', 'proc': device}, 
+                           disabled=True,
+                           style={
+                               'backgroundColor': '#bdc3c7',
+                               'color': 'white',
+                               'border': 'none',
+                               'borderRadius': '4px',
+                               'padding': '4px 8px',
+                               'cursor': 'not-allowed',
+                               'fontSize': '12px'
+                           })
+            ], style={
+                'display': 'flex', 
+                'justifyContent': 'space-between', 
+                'alignItems': 'center',
+                'marginBottom': '15px',
+                'paddingBottom': '10px',
+                'borderBottom': '2px solid #ecf0f1'
+            }),
+            
+            # Device Status
             html.Div([
-                # html.Span(f"Heartbeat: {heartbeat if heartbeat else 'N/A'}", style={'marginRight': '15px'}),
-                html.Span(f"Running components: {running_count}/{len(components)}", style={'fontWeight': 'bold'}),
-                html.Span(online_status, style={'color': online_color, 'fontWeight': 'bold', 'marginRight': '15px'})
-            ], style={'marginBottom': '10px', 'marginTop': '5px'}),
-            html.Div(comp_list),
-            html.Button('+', id={'type': 'add-comp-btn', 'proc': device}, title='Add Component', style={'marginTop': '10px'})
-        ], style={'border': '1px solid #ccc', 'padding': '14px', 'borderRadius': '14px', 'minWidth': '220px', 'marginRight': '18px', 'marginBottom': '18px', 'background': '#fff', 'boxShadow': '0 2px 8px #eee'}))
+                html.Div([
+                    html.Span("Status: ", style={'color': '#7f8c8d', 'fontSize': '14px'}),
+                    html.Span(online_status, style={
+                        'color': online_color, 
+                        'fontWeight': '600',
+                        'fontSize': '14px'
+                    })
+                ], style={'marginBottom': '8px'}),
+                html.Div([
+                    html.Span("Active: ", style={'color': '#7f8c8d', 'fontSize': '14px'}),
+                    html.Span(f"{running_count}/{len(components)}", style={
+                        'fontWeight': '600',
+                        'color': '#2c3e50',
+                        'fontSize': '14px'
+                    })
+                ])
+            ], style={'marginBottom': '20px'}),
+            
+            # Components List
+            html.Div([
+                html.H5("Components", style={
+                    'margin': '0 0 10px 0',
+                    'color': '#34495e',
+                    'fontSize': '14px',
+                    'fontWeight': '600'
+                }),
+                html.Div(comp_list)
+            ]),
+            
+            # Add Component Button
+            html.Button('+ Add Component', 
+                       id={'type': 'add-comp-btn', 'proc': device},
+                       style={
+                           'width': '100%',
+                           'backgroundColor': '#3498db',
+                           'color': 'white',
+                           'border': 'none',
+                           'borderRadius': '6px',
+                           'padding': '10px',
+                           'marginTop': '15px',
+                           'cursor': 'pointer',
+                           'fontSize': '14px',
+                           'fontWeight': '500',
+                           'transition': 'all 0.3s ease'
+                       })
+        ], style={
+            'backgroundColor': '#ffffff',
+            'border': '1px solid #e9ecef',
+            'borderRadius': '12px',
+            'padding': '20px',
+            'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.1)',
+            'transition': 'transform 0.2s ease, box-shadow 0.2s ease',
+            'minHeight': '300px'
+        }))
     return cards
 
 @app.callback(
