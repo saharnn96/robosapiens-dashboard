@@ -249,16 +249,24 @@ def update_processors(_):
                     html.Span(node, style={
                         'fontWeight': '600', 
                         'color': '#2c3e50',
-                        'fontSize': '14px'
+                        'fontSize': '14px',
+                        'marginLeft': '8px',
+                        'display': 'inline-block',  # Required for width to apply
+                        'width': '80px',            # Fixed width (adjust as needed)
+                        'textAlign': 'left',        # Optional: align text inside the fixed box
+                        'overflow': 'hidden',       # Optional: hide overflow if text too long
+                        'whiteSpace': 'nowrap',     # Optional: prevent wrapping
+                        
                     }),
                     html.Span(status_text, style={
                         'color': status_color, 
                         'fontWeight': '500',
                         'fontSize': '12px',
-                        'marginLeft': '8px'
-                    })
-                ], style={'marginBottom': '8px'}),
-                html.Div([
+                        'display': 'inline-block',  # Required for width to apply
+                        'width': '80px',            # Fixed width (adjust as neede
+                        'marginLeft': '8px',
+                        'marginRight': '8px'
+                    }),
                     html.Button('▶️', 
                                id={'type': 'run-comp-btn', 'proc': device, 'comp': node},
                                style={
@@ -295,7 +303,7 @@ def update_processors(_):
                                    'cursor': 'not-allowed',
                                    'fontSize': '12px'
                                })
-                ])
+                ], style={'marginBottom': '8px'}),
             ], style={
                 'backgroundColor': '#f8f9fa',
                 'border': '1px solid #e9ecef',
@@ -343,16 +351,15 @@ def update_processors(_):
                         'color': online_color, 
                         'fontWeight': '600',
                         'fontSize': '14px'
-                    })
-                ], style={'marginBottom': '8px'}),
-                html.Div([
+                    }),
                     html.Span("Active: ", style={'color': '#7f8c8d', 'fontSize': '14px'}),
                     html.Span(f"{running_count}/{len(nodes)}", style={
                         'fontWeight': '600',
                         'color': '#2c3e50',
+                        'leftMargin': '8px',
                         'fontSize': '14px'
                     })
-                ])
+                ], style={'marginBottom': '8px'}),
             ], style={'marginBottom': '20px'}),
             
             # Components List
@@ -366,22 +373,22 @@ def update_processors(_):
                 html.Div(comp_list)
             ]),
             
-            # Add Component Button
-            html.Button('+ Add Component', 
-                       id={'type': 'add-comp-btn', 'proc': device},
-                       style={
-                           'width': '100%',
-                           'backgroundColor': '#3498db',
-                           'color': 'white',
-                           'border': 'none',
-                           'borderRadius': '6px',
-                           'padding': '10px',
-                           'marginTop': '15px',
-                           'cursor': 'pointer',
-                           'fontSize': '14px',
-                           'fontWeight': '500',
-                           'transition': 'all 0.3s ease'
-                       })
+            # # Add Component Button
+            # html.Button('+ Add Component', 
+            #            id={'type': 'add-comp-btn', 'proc': device},
+            #            style={
+            #                'width': '100%',
+            #                'backgroundColor': '#3498db',
+            #                'color': 'white',
+            #                'border': 'none',
+            #                'borderRadius': '6px',
+            #                'padding': '10px',
+            #                'marginTop': '15px',
+            #                'cursor': 'pointer',
+            #                'fontSize': '14px',
+            #                'fontWeight': '500',
+            #                'transition': 'all 0.3s ease'
+            #            })
         ], style={
             'backgroundColor': '#ffffff',
             'border': '1px solid #e9ecef',
@@ -416,11 +423,7 @@ def handle_actions(add_proc_clicks, del_proc_clicks, add_comp_clicks, del_comp_c
         device_names = r.lrange('devices', 0, -1)
         logger.debug(f"Devices before add: {device_names}")
         new_device = f"Device{len(device_names) + 1}"
-        # r.rpush('devices', new_device)
         logger.debug(f"Added device: {new_device}")
-        # import time
-        # r.set(f'{new_device}:heartbeat', time.time())
-        # r.delete(f'{new_device}:components')
     elif isinstance(ctx.triggered_id, dict):
         tid = ctx.triggered_id
         logger.debug(f"handle_actions tid: {tid}")
