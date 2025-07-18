@@ -1,43 +1,40 @@
 import redis
 import time
 import random
-r = redis.Redis(host='localhost', port=6379, decode_responses=True, db=6)
+r = redis.Redis(host='localhost', port=6379, decode_responses=True)
 # r.flushdb()
 
 # Example device/component data
 devices = ['Device1', 'Device2', 'Device3']
-components = {
-    'Device1': ['Monitor', 'Execute'],
-    'Device2': ['Analysis', 'Plan'],
-    'Device3': ['Legitimate']
-}
+nodes = ['Monitor', 'Execute', 'Analysis', 'Plan', 'Legitimate']
 
 # # Set devices list
-r.delete('devices')
+r.delete('devices:list')
 for d in devices:
-    r.rpush('devices', d)
+    r.rpush('devices:list', d)
     # Ensure the components list is fresh for each device
-    r.delete(f'{d}:components')
-    for comp in components[d]:
+    r.delete(f'devices:{d}:nodes')
+    for node in nodes:
         try:
-            r.rpush(f'{d}:components', comp)
+            r.rpush(f'devices:{d}:nodes', node)
+            r.set(f'devices:{d}:{node}:status', 'paused')
         except redis.RedisError as e:
-            print(f"Error pushing component {comp} for device {d}: {e}")
+            print(f"Error pushing component {node} for device {d}: {e}")
 
 while True:
     now = time.time()
     # for device in devices:
     device = random.choice(devices)
     # Set heartbeat for each device
-    r.set(f'{device}:heartbeat', now)
+    r.set(f'devices:{device}:heartbeat', now)
     # Set components list for each device
     # r.delete(f'{device}:components')
     time.sleep(0.1)  # Simulate some delay
-    comp = random.choice(components[device])
+    node = random.choice(nodes)
             # Set component status and execution time
-    r.set(f'{device}:{comp}:status', 'running')
-    r.set(f'{device}:{comp}:execution_time', round(random.uniform(0.3, 1.5), 3))
-    r.set(f'{device}:{comp}:start_execution', now)
+    r.set(f'devices:{device}:{node}:status', 'running')
+    r.set(f'{node}:execution_time', round(random.uniform(0.3, 1.5), 3))
+    r.set(f'{node}:start_execution', now)
     # for comp in components[device]:
 
 

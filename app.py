@@ -10,7 +10,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 logger = logging.getLogger("dashboard")
 
-r = redis.Redis(host='localhost', port=6379, decode_responses=True, db=6)
+r = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
 app = dash.Dash(__name__)
 app.title = "RoboSAPIENS Adaptive Platform Dashboard"
@@ -152,26 +152,25 @@ def update_gantt(_):
         "Legitimate": "#9467bd",
         "Trustworthiness": "#8c564b"
     }
-    device_names = r.lrange('devices', 0, -1)
+    device_names = r.lrange('devices:list', 0, -1)
     now = time.time()
     for device in device_names:
-        components = r.lrange(f"{device}:components", 0, -1)
-        for comp in components:
-            status = r.get(f"{device}:{comp}:status")
-            execution_time = r.get(f"{device}:{comp}:execution_time")
-            start_execution = r.get(f"{device}:{comp}:start_execution")
+        nodes = r.lrange(f"devices:{device}:nodes", 0, -1)
+        for node in nodes:
+            execution_time = r.get(f"{node}:execution_time")
+            start_execution = r.get(f"{node}:start_execution")
             try:
-                if status and execution_time and start_execution:
+                if execution_time and start_execution:
                     start_exec = float(start_execution)
                     if now - start_exec <= 10:
                         exec_time = float(execution_time)
                         fig.add_trace(go.Bar(
-                            name=f"{comp}",
+                            name=f"{node}",
                             x=[exec_time],
-                            y=[f"{comp}"],
+                            y=[f"{node}"],
                             base=start_execution,
                             orientation="h",
-                            marker=dict(color=phase_colors.get(comp, "#7f7f7f"))
+                            marker=dict(color=phase_colors.get(node, "#7f7f7f"))
                         ))
             except ValueError:
                 continue
@@ -201,11 +200,11 @@ def update_gantt(_):
 )
 def update_processors(_):
     import time
-    device_names = r.lrange('devices', 0, -1)  # List of device names
+    device_names = r.lrange('devices:list', 0, -1)  # List of device names
     logger.debug(f"Devices in Redis: {device_names}")
     cards = []
     for device in device_names:
-        heartbeat = r.get(f"{device}:heartbeat")
+        heartbeat = r.get(f"devices:{device}:heartbeat")
         logger.debug(f"{device} heartbeat: {heartbeat}")
         try:
             if heartbeat:
@@ -227,14 +226,14 @@ def update_processors(_):
             online_color = "gray"
 
         # Get components for this device
-        components = r.lrange(f"{device}:components", 0, -1)
-        logger.debug(f"{device} components: {components}")
+        nodes = r.lrange(f"devices:{device}:nodes", 0, -1)
+        logger.debug(f"{device} nodes: {nodes}")
         running_count = 0
         comp_list = []
-        for comp in components:
-            status_key = f"{device}:{comp}:status"
+        for node in nodes:
+            status_key = f"devices:{device}:{node}:status"
             status = r.get(status_key)
-            logger.debug(f"{device} component {comp} status: {status}")
+            logger.debug(f"{device} component {node} status: {status}")
             if status == "running":
                 status_text = "🟢 Running"
                 status_color = "green"
@@ -247,7 +246,7 @@ def update_processors(_):
                 status_color = "gray"
             comp_list.append(html.Div([
                 html.Div([
-                    html.Span(comp, style={
+                    html.Span(node, style={
                         'fontWeight': '600', 
                         'color': '#2c3e50',
                         'fontSize': '14px'
@@ -261,7 +260,7 @@ def update_processors(_):
                 ], style={'marginBottom': '8px'}),
                 html.Div([
                     html.Button('▶️', 
-                               id={'type': 'run-comp-btn', 'proc': device, 'comp': comp},
+                               id={'type': 'run-comp-btn', 'proc': device, 'comp': node},
                                style={
                                    'backgroundColor': '#27ae60',
                                    'color': 'white',
@@ -273,7 +272,7 @@ def update_processors(_):
                                    'fontSize': '12px'
                                }),
                     html.Button('⏸️', 
-                               id={'type': 'pause-comp-btn', 'proc': device, 'comp': comp},
+                               id={'type': 'pause-comp-btn', 'proc': device, 'comp': node},
                                style={
                                    'backgroundColor': '#f39c12',
                                    'color': 'white',
@@ -285,7 +284,7 @@ def update_processors(_):
                                    'fontSize': '12px'
                                }),
                     html.Button('❌', 
-                               id={'type': 'del-comp-btn', 'proc': device, 'comp': comp}, 
+                               id={'type': 'del-comp-btn', 'proc': device, 'comp': node}, 
                                disabled=True,
                                style={
                                    'backgroundColor': '#bdc3c7',
@@ -348,7 +347,7 @@ def update_processors(_):
                 ], style={'marginBottom': '8px'}),
                 html.Div([
                     html.Span("Active: ", style={'color': '#7f8c8d', 'fontSize': '14px'}),
-                    html.Span(f"{running_count}/{len(components)}", style={
+                    html.Span(f"{running_count}/{len(nodes)}", style={
                         'fontWeight': '600',
                         'color': '#2c3e50',
                         'fontSize': '14px'
