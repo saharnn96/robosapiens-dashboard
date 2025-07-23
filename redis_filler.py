@@ -35,11 +35,8 @@ while True:
     r.set(f'devices:{device}:{node}:status', 'running')
     r.set(f'{node}:execution_time', round(random.uniform(0.3, 1.5), 3))
     r.set(f'{node}:start_execution', now)
-    # for comp in components[device]:
-
-
     # Add a log entry for demo
-    r.rpush('log', f'Test log entry from Python at {time.strftime("%Y-%m-%d %H:%M:%S")}')
+    r.rpush(f'{node}:logs', f'Test log entry from {node} at {time.strftime("%Y-%m-%d %H:%M:%S")}')
     time.sleep(2)
 
 print("Redis test data populated.")

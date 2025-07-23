@@ -238,11 +238,11 @@ def update_processors(_):
                 status_text = "🟢 Running"
                 status_color = "green"
                 running_count += 1
-            elif status == "paused":
-                status_text = "⏸️ Paused"
+            elif status == "exited":
+                status_text = "⏸️ Stopped"
                 status_color = "orange"
             else:
-                status_text = "⚪ Stopped"
+                status_text = "⚪ Removed"
                 status_color = "gray"
             comp_list.append(html.Div([
                 html.Div([
@@ -442,12 +442,31 @@ def handle_actions(add_proc_clicks, del_proc_clicks, add_comp_clicks, del_comp_c
             pass
         elif tid['type'] == 'run-comp-btn':
             device, comp = tid['proc'], tid['comp']
+            msg = {"command": "up", "app": comp}
+            r.publish("orchestrator-control", json.dumps(msg))
             logger.debug(f"Setting {device}:{comp} to running")
-            # r.set(f'{device}:status:{comp}', 'running')
+
         elif tid['type'] == 'pause-comp-btn':
             device, comp = tid['proc'], tid['comp']
+            msg = {"command": "down", "app": comp}
+            r.publish("orchestrator-control", json.dumps(msg))
             logger.debug(f"Setting {device}:{comp} to paused")
-            # r.set(f'{device}:status:{comp}', 'paused')
+
+        elif tid['type'] == 'del-proc-btn':
+            device, comp = tid['proc'], tid['comp']
+            msg = {"command": "remove", "app": comp}
+            r.set(f'devices:{device}:{comp}:status', 'removed')
+            r.publish("orchestrator-control", json.dumps(msg))
+            logger.debug(f"Deleted device: {device}")
+
+            # elif tid['type'] == 'del-comp-btn':
+            #     device, comp = tid['proc'], tid['comp']
+            #     # Remove component from device's nodes list
+            #     r.lrem(f"devices:{device}:nodes", 0, comp)
+            #     # Clean up component status
+            #     r.delete(f"devices:{device}:{comp}:status")
+            #     logger.debug(f"Deleted component {comp} from device {device}")
+
     return dash.no_update
 
 @app.callback(
