@@ -7,13 +7,47 @@ import time
 import logging
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 logger = logging.getLogger("dashboard")
+
+# Custom Redis Log Handler
+class RedisLogHandler(logging.Handler):
+    def __init__(self, redis_client, key_name="dashboard:logs", max_logs=100):
+        super().__init__()
+        self.redis_client = redis_client
+        self.key_name = key_name
+        self.max_logs = max_logs
+    
+    def emit(self, record):
+        try:
+            # Format the log record
+            log_message = self.format(record)
+            # Add timestamp
+            timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(record.created))
+            formatted_message = f"[{timestamp}] {log_message}"
+            
+            # Push to Redis list
+            self.redis_client.lpush(self.key_name, formatted_message)
+            # Trim list to keep only the latest logs
+            self.redis_client.ltrim(self.key_name, 0, self.max_logs - 1)
+        except Exception:
+            # Don't let logging errors crash the app
+            pass
 
 r = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
+# Add Redis handler to logger
+redis_handler = RedisLogHandler(r, "dashboard:logs")
+redis_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('[%(levelname)s] %(name)s: %(message)s')
+redis_handler.setFormatter(formatter)
+logger.addHandler(redis_handler)
+
 app = dash.Dash(__name__)
 app.title = "RoboSAPIENS Adaptive Platform Dashboard"
+
+# Log application startup
+logger.info("Dashboard application starting up")
+logger.info("Redis log handler configured for dashboard:logs")
 
 app.layout = html.Div([
     # Header Section
@@ -100,15 +134,65 @@ app.layout = html.Div([
 
     # Logs Section
     html.Div([
-        html.H3("System Logs", 
+        html.Div([
+            html.H3("System Logs", 
+                    style={
+                        'color': '#2c3e50',
+                        'marginBottom': '20px',
+                        'fontWeight': '400',
+                        'display': 'inline-block'
+                    }),
+            html.Button('🔄 Refresh Log Sources', 
+                       id='refresh-log-sources-btn',
+                       style={
+                           'backgroundColor': '#17a2b8',
+                           'color': 'white',
+                           'border': 'none',
+                           'padding': '8px 16px',
+                           'borderRadius': '5px',
+                           'cursor': 'pointer',
+                           'fontSize': '14px',
+                           'float': 'right',
+                           'transition': 'all 0.3s ease'
+                       })
+        ], style={'marginBottom': '15px'}),
+        
+        html.Div([
+            html.Label("Select Log Sources:", style={
+                'fontWeight': '600',
+                'color': '#2c3e50',
+                'marginBottom': '10px',
+                'display': 'block'
+            }),
+            dcc.Checklist(
+                id='log-sources-checklist',
+                options=[],
+                value=[],
                 style={
-                    'color': '#2c3e50',
-                    'marginBottom': '20px',
-                    'fontWeight': '400'
-                }),
+                    'marginBottom': '15px'
+                },
+                inputStyle={
+                    'marginRight': '8px'
+                },
+                labelStyle={
+                    'display': 'inline-block',
+                    'marginRight': '15px',
+                    'marginBottom': '5px',
+                    'color': '#34495e',
+                    'fontSize': '14px'
+                }
+            )
+        ], style={
+            'backgroundColor': '#f8f9fa',
+            'padding': '15px',
+            'borderRadius': '5px',
+            'border': '1px solid #dee2e6',
+            'marginBottom': '15px'
+        }),
+        
         html.Pre(id='live-log', 
                 style={
-                    'height': '250px', 
+                    'height': '300px', 
                     'overflowY': 'auto', 
                     'backgroundColor': '#f8f9fa',
                     'border': '1px solid #dee2e6',
@@ -129,7 +213,8 @@ app.layout = html.Div([
     # Intervals
     dcc.Interval(id='interval-gantt', interval=1000, n_intervals=0),
     dcc.Interval(id='interval-redis', interval=2000, n_intervals=0),
-    dcc.Interval(id='interval-log', interval=1000, n_intervals=0)
+    dcc.Interval(id='interval-log', interval=1000, n_intervals=0),
+    dcc.Interval(id='interval-log-sources', interval=5000, n_intervals=0)  # Check for new sources every 5 seconds
 ], style={
     'backgroundColor': '#f5f6fa',
     'minHeight': '100vh',
@@ -470,15 +555,140 @@ def handle_actions(add_proc_clicks, del_proc_clicks, add_comp_clicks, del_comp_c
     return dash.no_update
 
 @app.callback(
-    Output('live-log', 'children'),
-    Input('interval-log', 'n_intervals')
+    Output('log-sources-checklist', 'options'),
+    Output('log-sources-checklist', 'value'),
+    [Input('refresh-log-sources-btn', 'n_clicks')],
+    [State('log-sources-checklist', 'value')],
+    prevent_initial_call=False
 )
-def update_log(_):
-    logs = r.lrange('log', -5, -1)
-    if logs:
-        return '\n'.join(logs)
-    else:
-        return "No logs found in Redis."
+def update_log_sources(refresh_clicks, current_values):
+    """Update the available log sources by scanning Redis for *:logs keys"""
+    try:
+        # Get all keys matching the pattern *:logs
+        all_keys = r.keys('*')
+        log_keys = []
+        
+        for key in all_keys:
+            if key.endswith(':logs'):
+                log_keys.append(key)
+        
+        # Also include the general 'log' key if it exists
+        if r.exists('log'):
+            log_keys.append('log')
+        
+        # Sort the keys for consistent ordering
+        log_keys = sorted(set(log_keys))
+            
+        # Create options for checklist
+        options = [{'label': key, 'value': key} for key in log_keys]
+        
+        # Preserve current user selections, or select all if first load
+        if current_values is None:
+            # First load - select all available sources
+            values = log_keys if log_keys else []
+        else:
+            # Keep only the currently selected sources that still exist
+            values = [source for source in current_values if source in log_keys]
+            # If no valid selections remain and we have sources, don't auto-select
+            if not values and log_keys:
+                values = []
+        
+        logger.info(f"Found log sources: {log_keys}, Selected: {values}")
+        return options, values
+        
+    except Exception as e:
+        logger.error(f"Error updating log sources: {e}")
+        # Return some default options for testing
+        default_options = [{'label': 'log', 'value': 'log'}]
+        return default_options, current_values if current_values else []
+
+@app.callback(
+    Output('log-sources-checklist', 'options', allow_duplicate=True),
+    [Input('interval-log-sources', 'n_intervals')],
+    [State('log-sources-checklist', 'options'),
+     State('log-sources-checklist', 'value')],
+    prevent_initial_call=True
+)
+def auto_refresh_log_sources(_, current_options, current_values):
+    """Automatically refresh log sources options without changing user selections"""
+    try:
+        # Get all keys matching the pattern *:logs
+        all_keys = r.keys('*')
+        log_keys = []
+        
+        for key in all_keys:
+            if key.endswith(':logs'):
+                log_keys.append(key)
+        
+        # Also include the general 'log' key if it exists
+        if r.exists('log'):
+            log_keys.append('log')
+        
+        # Sort the keys for consistent ordering
+        log_keys = sorted(set(log_keys))
+        
+        # Get current options values
+        current_option_values = [opt['value'] for opt in current_options] if current_options else []
+        
+        # Only update if there are new sources
+        if set(log_keys) != set(current_option_values):
+            options = [{'label': key, 'value': key} for key in log_keys]
+            logger.info(f"Auto-refreshed log sources: {log_keys}")
+            return options
+        else:
+            # No change needed
+            return dash.no_update
+            
+    except Exception as e:
+        logger.error(f"Error auto-refreshing log sources: {e}")
+        return dash.no_update
+
+@app.callback(
+    Output('live-log', 'children'),
+    [Input('interval-log', 'n_intervals'),
+     Input('log-sources-checklist', 'value')],
+    prevent_initial_call=False
+)
+def update_log(_, selected_sources):
+    """Update log display based on selected sources"""
+    try:
+        # If no sources selected or None, try to show default log
+        if not selected_sources:
+            if r.exists('log'):
+                logs = r.lrange('log', -10, -1)
+                if logs:
+                    return '\n'.join(logs)
+            return "No log sources selected. Please select log sources from the checklist above."
+        
+        all_logs = []
+        
+        for source in selected_sources:
+            try:
+                # Get logs from each source (latest 10 entries per source)
+                logs = r.lrange(source, -10, -1)
+                if logs:
+                    # Add source prefix to each log entry
+                    source_name = source.replace(':logs', '') if source.endswith(':logs') else source
+                    for log_entry in logs:
+                        formatted_log = f"[{source_name}] {log_entry}"
+                        all_logs.append(formatted_log)
+                        
+            except Exception as e:
+                logger.warning(f"Error reading logs from {source}: {e}")
+                all_logs.append(f"[ERROR] Could not read from {source}: {str(e)}")
+                continue
+        
+        if all_logs:
+            # Get the latest 10 entries from all combined logs
+            latest_logs = all_logs[-10:] if len(all_logs) > 10 else all_logs
+            return '\n'.join(latest_logs)
+        else:
+            return "No logs found in selected sources."
+            
+    except Exception as e:
+        logger.error(f"Error updating logs: {e}")
+        return f"Error loading logs: {str(e)}"
 
 if __name__ == '__main__':
+    logger.info("Starting Dash server in debug mode")
     app.run_server(debug=True)
