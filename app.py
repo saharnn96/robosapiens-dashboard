@@ -879,5 +879,9 @@ def update_log(_, selected_sources):
         return f"Error loading logs: {str(e)}"
 
 if __name__ == '__main__':
+    # Get configuration from environment variables
+    dash_host = os.getenv('DASH_HOST', '0.0.0.0')
+    dash_port = int(os.getenv('DASH_PORT', '8050'))
     logger.info("Starting Dash server in debug mode")
-    app.run_server(debug=True)
+    app.run(host=dash_host, port=dash_port, debug=True)
+
