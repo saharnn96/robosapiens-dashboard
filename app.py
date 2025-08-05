@@ -132,11 +132,13 @@ app.layout = html.Div([
                 ], style={'marginBottom': '10px'}),
                 html.Div(id='processor-cards', 
                         style={
-                            'display': 'grid', 
-                            'gridTemplateColumns': '1fr', 
+                            'display': 'flex', 
+                            'flexDirection': 'row',
                             'gap': '8px',
                             'maxHeight': '320px',
-                            'overflowY': 'auto'
+                            'overflowX': 'auto',
+                            'overflowY': 'hidden',
+                            'paddingBottom': '5px'
                         })
             ], style={
                 'backgroundColor': '#ffffff',
@@ -211,7 +213,7 @@ app.layout = html.Div([
         
         html.Pre(id='live-log', 
                 style={
-                    'height': '200px', 
+                    'height': '150px', 
                     'overflowY': 'auto', 
                     'backgroundColor': '#f8f9fa',
                     'border': '1px solid #dee2e6',
@@ -581,9 +583,9 @@ def update_processors(_):
             ], style={
                 'backgroundColor': '#f8f9fa',
                 'border': '1px solid #e9ecef',
-                'borderRadius': '8px',
-                'padding': '12px',
-                'marginBottom': '8px',
+                'borderRadius': '6px',
+                'padding': '8px',
+                'marginBottom': '6px',
                 'transition': 'all 0.2s ease'
             }))
 
@@ -612,8 +614,8 @@ def update_processors(_):
                 'display': 'flex', 
                 'justifyContent': 'space-between', 
                 'alignItems': 'center',
-                'marginBottom': '15px',
-                'paddingBottom': '10px',
+                'marginBottom': '10px',
+                'paddingBottom': '8px',
                 'borderBottom': '2px solid #ecf0f1'
             }),
             
@@ -633,8 +635,8 @@ def update_processors(_):
                         'leftMargin': '8px',
                         'fontSize': '14px'
                     })
-                ], style={'marginBottom': '8px'}),
-            ], style={'marginBottom': '20px'}),
+                ], style={'marginBottom': '6px'}),
+            ], style={'marginBottom': '12px'}),
             
             # Components List
             html.Div([
@@ -644,7 +646,11 @@ def update_processors(_):
                     'fontSize': '14px',
                     'fontWeight': '600'
                 }),
-                html.Div(comp_list)
+                html.Div(comp_list, style={
+                    'maxHeight': '180px',
+                    'overflowY': 'auto',
+                    'paddingRight': '5px'
+                })
             ]),
             
             # # Add Component Button
@@ -667,10 +673,15 @@ def update_processors(_):
             'backgroundColor': '#ffffff',
             'border': '1px solid #e9ecef',
             'borderRadius': '12px',
-            'padding': '20px',
+            'padding': '15px',
             'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.1)',
             'transition': 'transform 0.2s ease, box-shadow 0.2s ease',
-            'minHeight': '300px'
+            'height': '280px',
+            'minWidth': '280px',
+            'maxWidth': '320px',
+            'flex': '0 0 auto',
+            'display': 'flex',
+            'flexDirection': 'column'
         }))
     return cards
 
