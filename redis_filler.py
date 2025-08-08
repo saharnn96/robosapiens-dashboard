@@ -1,6 +1,7 @@
 import redis
 import time
 import random
+import json
 r = redis.Redis(host='localhost', port=6379, decode_responses=True)
 # r.flushdb()
 
@@ -21,6 +22,9 @@ for d in devices:
         except redis.RedisError as e:
             print(f"Error pushing component {node} for device {d}: {e}")
 
+last_trust_pub = 0.0
+next_trust_gap = random.uniform(2.0, 4.0)
+
 while True:
     now = time.time()
     # for device in devices:
@@ -37,6 +41,19 @@ while True:
     r.set(f'{node}:start_execution', now)
     # Add a log entry for demo
     r.rpush(f'{node}:logs', f'Test log entry from {node} at {time.strftime("%Y-%m-%d %H:%M:%S")}')
+
+    # Occasionally publish to trust topic 'maple'
+    if (now - last_trust_pub) >= next_trust_gap:
+        trust_val = random.choice([True, False])
+        payload = {"Str": trust_val}
+        try:
+            r.publish('maple', json.dumps(payload))
+            print(f"Published to 'maple': {payload}")
+        except Exception as e:
+            print(f"Error publishing trust payload: {e}")
+        last_trust_pub = now
+        next_trust_gap = random.uniform(2.0, 4.0)
+
     time.sleep(2)
 
 print("Redis test data populated.")
