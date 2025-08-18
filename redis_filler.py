@@ -45,7 +45,7 @@ while True:
     # Occasionally publish to trust topic 'maple'
     if (now - last_trust_pub) >= next_trust_gap:
         trust_val = random.choice([True, False])
-        payload = {"Str": trust_val}
+        payload = {"Bool": trust_val}
         try:
             r.publish('maple', json.dumps(payload))
             print(f"Published to 'maple': {payload}")
