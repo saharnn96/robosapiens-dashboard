@@ -690,64 +690,79 @@ def update_processors(_):
                 status_color = "gray"
             comp_list.append(html.Div([
                 html.Div([
-                    html.Span(node, style={
-                        'fontWeight': '600', 
-                        'color': '#2c3e50',
-                        'fontSize': '14px',
-                        'marginLeft': '8px',
-                        'display': 'inline-block',  # Required for width to apply
-                        'width': '80px',            # Fixed width (adjust as needed)
-                        'textAlign': 'left',        # Optional: align text inside the fixed box
-                        'overflow': 'hidden',       # Optional: hide overflow if text too long
-                        'whiteSpace': 'nowrap',     # Optional: prevent wrapping
-                        
+                    # Left side: Node name and status
+                    html.Div([
+                        html.Span(node, style={
+                            'fontWeight': '600', 
+                            'color': '#2c3e50',
+                            'fontSize': '14px',
+                            'display': 'block',
+                            'wordBreak': 'break-word',
+                            'lineHeight': '1.2',
+                            'marginBottom': '2px'
+                        }),
+                        html.Span(status_text, style={
+                            'color': status_color, 
+                            'fontWeight': '500',
+                            'fontSize': '12px',
+                            'display': 'block'
+                        })
+                    ], style={
+                        'flex': '1',
+                        'minWidth': '0',  # Allow shrinking
+                        'paddingRight': '8px'
                     }),
-                    html.Span(status_text, style={
-                        'color': status_color, 
-                        'fontWeight': '500',
-                        'fontSize': '12px',
-                        'display': 'inline-block',  # Required for width to apply
-                        'width': '80px',            # Fixed width (adjust as neede
-                        'marginLeft': '8px',
-                        'marginRight': '8px'
-                    }),
-                    html.Button('▶️', 
-                               id={'type': 'run-comp-btn', 'proc': device, 'comp': node},
-                               style={
-                                   'backgroundColor': '#27ae60',
-                                   'color': 'white',
-                                   'border': 'none',
-                                   'borderRadius': '4px',
-                                   'padding': '4px 8px',
-                                   'marginRight': '4px',
-                                   'cursor': 'pointer',
-                                   'fontSize': '12px'
-                               }),
-                    html.Button('⏸️', 
-                               id={'type': 'pause-comp-btn', 'proc': device, 'comp': node},
-                               style={
-                                   'backgroundColor': '#f39c12',
-                                   'color': 'white',
-                                   'border': 'none',
-                                   'borderRadius': '4px',
-                                   'padding': '4px 8px',
-                                   'marginRight': '4px',
-                                   'cursor': 'pointer',
-                                   'fontSize': '12px'
-                               }),
-                    html.Button('❌', 
-                               id={'type': 'del-comp-btn', 'proc': device, 'comp': node}, 
-                               disabled=True,
-                               style={
-                                   'backgroundColor': '#bdc3c7',
-                                   'color': 'white',
-                                   'border': 'none',
-                                   'borderRadius': '4px',
-                                   'padding': '4px 8px',
-                                   'cursor': 'not-allowed',
-                                   'fontSize': '12px'
-                               })
-                ], style={'marginBottom': '8px'}),
+                    
+                    # Right side: Action buttons
+                    html.Div([
+                        html.Button('▶️', 
+                                   id={'type': 'run-comp-btn', 'proc': device, 'comp': node},
+                                   style={
+                                       'backgroundColor': '#27ae60',
+                                       'color': 'white',
+                                       'border': 'none',
+                                       'borderRadius': '4px',
+                                       'padding': '4px 8px',
+                                       'marginRight': '4px',
+                                       'cursor': 'pointer',
+                                       'fontSize': '12px'
+                                   }),
+                        html.Button('⏸️', 
+                                   id={'type': 'pause-comp-btn', 'proc': device, 'comp': node},
+                                   style={
+                                       'backgroundColor': '#f39c12',
+                                       'color': 'white',
+                                       'border': 'none',
+                                       'borderRadius': '4px',
+                                       'padding': '4px 8px',
+                                       'marginRight': '4px',
+                                       'cursor': 'pointer',
+                                       'fontSize': '12px'
+                                   }),
+                        html.Button('❌', 
+                                   id={'type': 'del-comp-btn', 'proc': device, 'comp': node}, 
+                                   disabled=True,
+                                   style={
+                                       'backgroundColor': '#bdc3c7',
+                                       'color': 'white',
+                                       'border': 'none',
+                                       'borderRadius': '4px',
+                                       'padding': '4px 8px',
+                                       'cursor': 'not-allowed',
+                                       'fontSize': '12px'
+                                   })
+                    ], style={
+                        'display': 'flex',
+                        'alignItems': 'center',
+                        'flexShrink': '0'  # Don't shrink buttons
+                    })
+                ], style={
+                    'display': 'flex', 
+                    'alignItems': 'center', 
+                    'justifyContent': 'space-between',
+                    'width': '100%',
+                    'marginBottom': '8px'
+                }),
             ], style={
                 'backgroundColor': '#f8f9fa',
                 'border': '1px solid #e9ecef',
@@ -790,20 +805,31 @@ def update_processors(_):
             # Device Status
             html.Div([
                 html.Div([
-                    html.Span("Status: ", style={'color': '#7f8c8d', 'fontSize': '14px'}),
-                    html.Span(online_status, style={
-                        'color': online_color, 
-                        'fontWeight': '600',
-                        'fontSize': '14px'
-                    }),
-                    html.Span("Active: ", style={'color': '#7f8c8d', 'fontSize': '14px'}),
-                    html.Span(f"{running_count}/{len(nodes)}", style={
-                        'fontWeight': '600',
-                        'color': '#2c3e50',
-                        'leftMargin': '8px',
-                        'fontSize': '14px'
-                    })
-                ], style={'marginBottom': '6px'}),
+                    # Left side: Device status
+                    html.Div([
+                        html.Span("Status: ", style={'color': '#7f8c8d', 'fontSize': '14px'}),
+                        html.Span(online_status, style={
+                            'color': online_color, 
+                            'fontWeight': '600',
+                            'fontSize': '14px'
+                        })
+                    ], style={'display': 'flex', 'alignItems': 'center'}),
+                    
+                    # Right side: Active count
+                    html.Div([
+                        html.Span("Active: ", style={'color': '#7f8c8d', 'fontSize': '14px', 'marginRight': '4px'}),
+                        html.Span(f"{running_count}/{len(nodes)}", style={
+                            'fontWeight': '600',
+                            'color': '#2c3e50',
+                            'fontSize': '14px'
+                        })
+                    ], style={'display': 'flex', 'alignItems': 'center'})
+                ], style={
+                    'display': 'flex', 
+                    'justifyContent': 'space-between', 
+                    'alignItems': 'center',
+                    'marginBottom': '6px'
+                }),
             ], style={'marginBottom': '12px'}),
             
             # Components List
@@ -815,7 +841,7 @@ def update_processors(_):
                     'fontWeight': '600'
                 }),
                 html.Div(comp_list, style={
-                    'maxHeight': '180px',
+                    'maxHeight': '220px',       # Increased height to show more nodes
                     'overflowY': 'auto',
                     'paddingRight': '5px'
                 })
@@ -844,9 +870,9 @@ def update_processors(_):
             'padding': '15px',
             'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.1)',
             'transition': 'transform 0.2s ease, box-shadow 0.2s ease',
-            'height': '280px',
-            'minWidth': '280px',
-            'maxWidth': '320px',
+            'minHeight': '320px',       # Changed to minHeight to allow expansion
+            'minWidth': '320px',        # Increased minimum width for longer names
+            'maxWidth': '420px',        # Increased max width to accommodate longer names
             'flex': '0 0 auto',
             'display': 'flex',
             'flexDirection': 'column'
