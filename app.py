@@ -54,9 +54,11 @@ _trust_state = {
     'value': None,          # True/False
     'timestamp': 0.0        # last message time.time()
 }
+_trust_history = []  # List of (timestamp, value) tuples for recent events
 _trust_lock = threading.Lock()
 _TRUST_TOPIC = 'maple'
 _TRUST_DISPLAY_SECONDS = float(os.getenv('TRUST_DISPLAY_SECONDS', '5'))  # show for 3–5s
+_TRUST_HISTORY_WINDOW = 60  # Keep trust events for 60 seconds
 
 
 def _parse_trust_payload(data):
@@ -109,10 +111,16 @@ def _trust_listener():
                 data = msg.get('data')
                 val = _parse_trust_payload(data)
                 if val is not None:
+                    current_time = time.time()
                     with _trust_lock:
                         _trust_state['value'] = bool(val)
-                        _trust_state['timestamp'] = time.time()
-                    logger.debug(f"Trust update: {val}")
+                        _trust_state['timestamp'] = current_time
+                        # Add to history
+                        _trust_history.append((current_time, bool(val)))
+                        # Clean old history entries
+                        cutoff_time = current_time - _TRUST_HISTORY_WINDOW
+                        _trust_history[:] = [(ts, v) for ts, v in _trust_history if ts > cutoff_time]
+                    logger.debug(f"Trust update: {val} at {current_time}")
                 else:
                     logger.debug(f"Ignored trust payload: {data}")
             except Exception as e:
@@ -168,92 +176,89 @@ app.layout = html.Div([
         'boxShadow': '0 2px 4px rgba(0, 0, 0, 0.1)'
     }),
 
-    # Main Content Grid
+    # Components Timeline Section (Full Width)
     html.Div([
-        # Left Column: Gantt Chart
+        html.Div([
+            html.H3("Components Timeline", 
+                    style={
+                        'color': '#2c3e50',
+                        'marginBottom': '10px',
+                        'fontWeight': '400',
+                        'fontSize': '1.1rem'
+                    }),
+            # Trust popup (toast-like) anchored to this card
+            html.Div(
+                id='trust-popup',
+                style={
+                    'display': 'none',
+                    'position': 'absolute',
+                    'top': '8px',
+                    'right': '8px',
+                    'zIndex': 5,
+                    'padding': '10px 14px',
+                    'borderRadius': '8px',
+                    'boxShadow': '0 4px 10px rgba(0,0,0,0.15)',
+                    'color': 'white',
+                    'fontWeight': '600',
+                    'fontSize': '13px'
+                }
+            ),
+            dcc.Graph(id="gantt-chart", style={'height': '320px'})
+        ], style={
+            'backgroundColor': '#ffffff',
+            'padding': '15px',
+            'borderRadius': '8px',
+            'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.08)',
+            'border': '1px solid #e9ecef',
+            'height': '370px',
+            'position': 'relative'  # anchor for absolute popup
+        })
+    ], style={'marginBottom': '15px'}),
+
+    # Device Status Section (Full Width)
+    html.Div([
         html.Div([
             html.Div([
-                html.H3("Components Timeline", 
+                html.H3("Device Status", 
                         style={
                             'color': '#2c3e50',
                             'marginBottom': '10px',
                             'fontWeight': '400',
+                            'display': 'inline-block',
                             'fontSize': '1.1rem'
                         }),
-                # Trust popup (toast-like) anchored to this card
-                html.Div(
-                    id='trust-popup',
+                html.Button('+ Add Device', 
+                           id='add-processor-btn', 
+                           style={
+                               'backgroundColor': '#3498db',
+                               'color': 'white',
+                               'border': 'none',
+                               'padding': '6px 12px',
+                               'borderRadius': '4px',
+                               'cursor': 'pointer',
+                               'fontSize': '12px',
+                               'float': 'right',
+                               'transition': 'all 0.3s ease'
+                           })
+            ], style={'marginBottom': '10px'}),
+            html.Div(id='processor-cards', 
                     style={
-                        'display': 'none',
-                        'position': 'absolute',
-                        'top': '8px',
-                        'right': '8px',
-                        'zIndex': 5,
-                        'padding': '10px 14px',
-                        'borderRadius': '8px',
-                        'boxShadow': '0 4px 10px rgba(0,0,0,0.15)',
-                        'color': 'white',
-                        'fontWeight': '600',
-                        'fontSize': '13px'
-                    }
-                ),
-                dcc.Graph(id="gantt-chart", style={'height': '320px'})
-            ], style={
-                'backgroundColor': '#ffffff',
-                'padding': '15px',
-                'borderRadius': '8px',
-                'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.08)',
-                'border': '1px solid #e9ecef',
-                'height': '370px',
-                'position': 'relative'  # anchor for absolute popup
-            })
-        ], style={'width': '48%', 'display': 'inline-block', 'verticalAlign': 'top'}),
-        
-        # Right Column: Device Cards
-        html.Div([
-            html.Div([
-                html.Div([
-                    html.H3("Device Status", 
-                            style={
-                                'color': '#2c3e50',
-                                'marginBottom': '10px',
-                                'fontWeight': '400',
-                                'display': 'inline-block',
-                                'fontSize': '1.1rem'
-                            }),
-                    html.Button('+ Add Device', 
-                               id='add-processor-btn', 
-                               style={
-                                   'backgroundColor': '#3498db',
-                                   'color': 'white',
-                                   'border': 'none',
-                                   'padding': '6px 12px',
-                                   'borderRadius': '4px',
-                                   'cursor': 'pointer',
-                                   'fontSize': '12px',
-                                   'float': 'right',
-                                   'transition': 'all 0.3s ease'
-                               })
-                ], style={'marginBottom': '10px'}),
-                html.Div(id='processor-cards', 
-                        style={
-                            'display': 'flex', 
-                            'flexDirection': 'row',
-                            'gap': '8px',
-                            'maxHeight': '320px',
-                            'overflowX': 'auto',
-                            'overflowY': 'hidden',
-                            'paddingBottom': '5px'
-                        })
-            ], style={
-                'backgroundColor': '#ffffff',
-                'padding': '15px',
-                'borderRadius': '8px',
-                'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.08)',
-                'border': '1px solid #e9ecef',
-                'height': '370px'
-            })
-        ], style={'width': '48%', 'display': 'inline-block', 'verticalAlign': 'top', 'marginLeft': '4%'})
+                        'display': 'flex', 
+                        'flexDirection': 'row',
+                        'gap': '8px',
+                        'maxHeight': '280px',
+                        'overflowX': 'auto',
+                        'overflowY': 'hidden',
+                        'paddingBottom': '5px'
+                    })
+        ], style={
+            'backgroundColor': '#ffffff',
+            'padding': '15px',
+            'borderRadius': '8px',
+            'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.08)',
+            'border': '1px solid #e9ecef',
+            'height': '330px'
+        })
     ], style={'marginBottom': '15px'}),
 
     # Logs Section
@@ -374,6 +379,49 @@ def update_gantt(_):
 
     # Track y labels so we can force Trustworthiness at the top
     y_labels = set()
+    
+    # Add trustworthiness spikes/steps for each event in history
+    with _trust_lock:
+        trust_history = _trust_history.copy()  # Safe copy
+    
+    trust_label = "🛡️ Trustworthiness"
+    if trust_history:
+        y_labels.add(trust_label)
+        
+        for event_time, trust_val in trust_history:
+            elapsed = now - event_time
+            if 0 <= elapsed <= time_window:
+                # Create a spike/step for each event
+                spike_start = -elapsed
+                spike_width = 0.5  # Short spike duration for visibility
+                
+                # Adjust if spike extends beyond current time
+                if spike_start + spike_width > 0:
+                    spike_width = -spike_start
+                
+                if spike_width > 0:
+                    trust_color = '#2ecc71' if trust_val else '#e74c3c'
+                    
+                    fig.add_trace(go.Bar(
+                        name=trust_label,
+                        x=[spike_width],
+                        y=[trust_label],
+                        base=spike_start,
+                        orientation="h",
+                        marker=dict(
+                            color=trust_color,
+                            opacity=0.9,
+                            line=dict(color='rgba(0,0,0,0.5)', width=2)
+                        ),
+                        hovertemplate=(
+                            f"<b>Trustworthiness Event</b><br>"
+                            f"Status: {'✅ TRUSTED' if trust_val else '❌ NOT TRUSTED'}<br>"
+                            f"Time: {elapsed:.1f}s ago<br>"
+                            f"Event at: {time.strftime('%H:%M:%S', time.localtime(event_time))}<br>"
+                            "<extra></extra>"
+                        ),
+                        showlegend=False
+                    ))
     
     for device in device_names:
         nodes = r.lrange(f"devices:{device}:nodes", 0, -1)
@@ -537,6 +585,14 @@ def update_gantt(_):
                     logger.warning(f"Error processing {device}:{node} execution data: {e}")
                     continue
 
+    # Sort y-axis labels to put trustworthiness at the top
+    sorted_labels = sorted(y_labels)
+    trust_label = "🛡️ Trustworthiness"
+    if trust_label in sorted_labels:
+        # Remove from sorted list and put at beginning
+        sorted_labels.remove(trust_label)
+        sorted_labels.insert(0, trust_label)
+
     # Update layout with proper time axis (restore category ordering without trust bar)
     fig.update_layout(
         title={
@@ -560,7 +616,8 @@ def update_gantt(_):
             'title': "Components",
             'showgrid': True,
             'gridcolor': 'rgba(0,0,0,0.1)',
-            'categoryorder': 'category ascending'
+            'categoryorder': 'array',
+            'categoryarray': sorted_labels
         },
         barmode="overlay",
         template="plotly_white",
