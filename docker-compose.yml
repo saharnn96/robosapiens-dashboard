@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: robosapiens-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  dashboard:
+    build: .
+    container_name: robosapiens-dashboard
+    ports:
+      - "8050:8050"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - DASH_HOST=0.0.0.0
+      - DASH_PORT=8050
+      - TRUST_DISPLAY_SECONDS=5
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis-filler:
+    build: .
+    container_name: robosapiens-redis-filler
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    depends_on:
+      - redis
+    restart: unless-stopped
+    command: python redis_filler.py
+
+volumes:
+  redis_data:

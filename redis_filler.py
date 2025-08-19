@@ -2,8 +2,15 @@ import redis
 import time
 import random
 import json
-r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+import os
+
 # r.flushdb()
+r = redis.Redis(
+    host=os.getenv('REDIS_HOST', 'localhost'),
+    port=int(os.getenv('REDIS_PORT', 6379)),
+    db=int(os.getenv('REDIS_DB', 0)),
+    decode_responses=True
+)
 
 # Example device/component data
 devices = ['Device1', 'Device2', 'Device3']
