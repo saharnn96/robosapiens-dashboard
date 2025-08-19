@@ -60,6 +60,11 @@ _TRUST_TOPIC = 'maple'
 _TRUST_DISPLAY_SECONDS = float(os.getenv('TRUST_DISPLAY_SECONDS', '5'))  # show for 3–5s
 _TRUST_HISTORY_WINDOW = 60  # Keep trust events for 60 seconds
 
+# --- Loading state management for buttons ---
+_loading_states = {}  # Format: {f"{device}:{node}:{action}": timestamp}
+_loading_lock = threading.Lock()
+_LOADING_TIMEOUT = 30  # Maximum time to show loading state (30 seconds)
+
 
 def _parse_trust_payload(data):
     """Accepts JSON or plain strings; returns True/False/None."""
@@ -99,6 +104,51 @@ def _parse_trust_payload(data):
             return False
     # Unsupported
     return None
+
+
+def _set_loading_state(device, node, action):
+    """Set a loading state for a specific device:node:action combination."""
+    key = f"{device}:{node}:{action}"
+    with _loading_lock:
+        _loading_states[key] = time.time()
+    logger.debug(f"Set loading state for {key}")
+
+
+def _clear_loading_state(device, node, action):
+    """Clear a loading state for a specific device:node:action combination."""
+    key = f"{device}:{node}:{action}"
+    with _loading_lock:
+        _loading_states.pop(key, None)
+    logger.debug(f"Cleared loading state for {key}")
+
+
+def _is_loading(device, node, action):
+    """Check if a specific device:node:action is in loading state."""
+    key = f"{device}:{node}:{action}"
+    with _loading_lock:
+        if key not in _loading_states:
+            return False
+        # Check if loading state has timed out
+        elapsed = time.time() - _loading_states[key]
+        if elapsed > _LOADING_TIMEOUT:
+            _loading_states.pop(key, None)
+            logger.debug(f"Loading state timed out for {key}")
+            return False
+        return True
+
+
+def _cleanup_loading_states():
+    """Clean up expired loading states."""
+    current_time = time.time()
+    with _loading_lock:
+        expired_keys = [
+            key for key, timestamp in _loading_states.items()
+            if current_time - timestamp > _LOADING_TIMEOUT
+        ]
+        for key in expired_keys:
+            _loading_states.pop(key, None)
+        if expired_keys:
+            logger.debug(f"Cleaned up expired loading states: {expired_keys}")
 
 
 def _trust_listener():
@@ -203,14 +253,14 @@ app.layout = html.Div([
                     'fontSize': '13px'
                 }
             ),
-            dcc.Graph(id="gantt-chart", style={'height': '320px'})
+            dcc.Graph(id="gantt-chart", style={'height': '370px'})
         ], style={
             'backgroundColor': '#ffffff',
             'padding': '15px',
             'borderRadius': '8px',
             'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.08)',
             'border': '1px solid #e9ecef',
-            'height': '370px',
+            'height': '420px',
             'position': 'relative'  # anchor for absolute popup
         })
     ], style={'marginBottom': '15px'}),
@@ -366,11 +416,13 @@ app.layout = html.Div([
 def update_gantt(_):
     fig = go.Figure()
     phase_colors = {
-        "Monitor": "#3498db",
-        "Analyze": "#2ecc71", 
-        "Plan": "#f39c12",
-        "Execute": "#e74c3c",
-        "Knowledge": "#9b59b6"
+        "Monitor": "#3498db",      # Blue
+        "Analysis": "#f39c12",     # Orange  
+        "Plan": "#9b59b6",         # Purple
+        "Legitimate": "#e67e22",   # Dark Orange
+        "Execute": "#34495e",      # Dark Gray
+        "Knowledge": "#95a5a6",    # Light Gray
+        "Trustworthiness": "#16a085"  # Teal (keeping green/red for trust states)
     }
     
     device_names = r.lrange('devices:list', 0, -1)
@@ -577,6 +629,34 @@ def update_gantt(_):
                     logger.warning(f"Error processing {device}:{node} execution data: {e}")
                     continue
 
+    # Add invisible traces for legend (color guide)
+    legend_items = [
+        ("Monitor", "#3498db"),
+        ("Analysis", "#f39c12"),
+        ("Plan", "#9b59b6"),
+        ("Legitimate", "#e67e22"),
+        ("Execute", "#34495e"),
+        ("Knowledge", "#95a5a6"),
+        ("Trustworthiness", "#16a085"),
+        ("Trust OK", "#2ecc71"),
+        ("Trust Alert", "#e74c3c")
+    ]
+    
+    for name, color in legend_items:
+        fig.add_trace(go.Scatter(
+            x=[None],
+            y=[None],
+            mode='markers',
+            marker=dict(
+                size=10,
+                color=color,
+                symbol='square'
+            ),
+            name=name,
+            showlegend=True,
+            hoverinfo='skip'
+        ))
+
     # Sort y-axis labels to put trustworthiness at the top
     sorted_labels = sorted(y_labels)
     trust_label = "🛡️ Trustworthiness"
@@ -613,12 +693,23 @@ def update_gantt(_):
         },
         barmode="overlay",
         template="plotly_white",
-        showlegend=False,
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(255, 255, 255, 0.8)",
+            bordercolor="rgba(0, 0, 0, 0.2)",
+            borderwidth=1,
+            font=dict(size=10)
+        ),
         plot_bgcolor="rgba(248, 249, 250, 1)",
         paper_bgcolor="rgba(255, 255, 255, 1)",
         font={'family': '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'},
-        margin={'l': 120, 'r': 20, 't': 60, 'b': 60},
-        height=300
+        margin={'l': 120, 'r': 20, 't': 100, 'b': 60},
+        height=350
     )
     
     fig.add_vline(
@@ -636,6 +727,9 @@ def update_gantt(_):
 )
 def update_processors(_):
     import time
+    # Clean up expired loading states
+    _cleanup_loading_states()
+    
     device_names = r.lrange('devices:list', 0, -1)  # List of device names
     logger.debug(f"Devices in Redis: {device_names}")
     cards = []
@@ -682,6 +776,19 @@ def update_processors(_):
             status_key = f"devices:{device}:{node}:status"
             status = r.get(status_key)
             logger.debug(f"{device} component {node} status: {status}")
+            
+            # Check loading states
+            is_pausing = _is_loading(device, node, 'pause')
+            is_running_action = _is_loading(device, node, 'run')
+            
+            # Clear loading state if node has reached expected state
+            if is_pausing and status in ["stopped", "exited", "paused"]:
+                _clear_loading_state(device, node, 'pause')
+                is_pausing = False
+            if is_running_action and status == "running":
+                _clear_loading_state(device, node, 'run')
+                is_running_action = False
+            
             if status == "running":
                 status_text = "🟢 Running"
                 status_color = "green"
@@ -698,6 +805,36 @@ def update_processors(_):
             else:
                 status_text = "⚪ Removed"
                 status_color = "gray"
+                
+            # Prepare button styles based on loading states
+            run_button_style = {
+                'backgroundColor': '#95a5a6' if is_running_action else '#27ae60',
+                'color': 'white',
+                'border': 'none',
+                'borderRadius': '4px',
+                'padding': '4px 8px',
+                'marginRight': '4px',
+                'cursor': 'wait' if is_running_action else 'pointer',
+                'fontSize': '12px',
+                'opacity': '0.7' if is_running_action else '1'
+            }
+            
+            pause_button_style = {
+                'backgroundColor': '#95a5a6' if is_pausing else '#f39c12',
+                'color': 'white',
+                'border': 'none',
+                'borderRadius': '4px',
+                'padding': '4px 8px',
+                'marginRight': '4px',
+                'cursor': 'wait' if is_pausing else 'pointer',
+                'fontSize': '12px',
+                'opacity': '0.7' if is_pausing else '1'
+            }
+            
+            # Button content changes based on loading state
+            run_button_content = '⏳' if is_running_action else '▶️'
+            pause_button_content = '⏳' if is_pausing else '⏸️'
+            
             comp_list.append(html.Div([
                 html.Div([
                     # Left side: Node name and status
@@ -725,30 +862,14 @@ def update_processors(_):
                     
                     # Right side: Action buttons
                     html.Div([
-                        html.Button('▶️', 
+                        html.Button(run_button_content, 
                                    id={'type': 'run-comp-btn', 'proc': device, 'comp': node},
-                                   style={
-                                       'backgroundColor': '#27ae60',
-                                       'color': 'white',
-                                       'border': 'none',
-                                       'borderRadius': '4px',
-                                       'padding': '4px 8px',
-                                       'marginRight': '4px',
-                                       'cursor': 'pointer',
-                                       'fontSize': '12px'
-                                   }),
-                        html.Button('⏸️', 
+                                   disabled=is_running_action,
+                                   style=run_button_style),
+                        html.Button(pause_button_content, 
                                    id={'type': 'pause-comp-btn', 'proc': device, 'comp': node},
-                                   style={
-                                       'backgroundColor': '#f39c12',
-                                       'color': 'white',
-                                       'border': 'none',
-                                       'borderRadius': '4px',
-                                       'padding': '4px 8px',
-                                       'marginRight': '4px',
-                                       'cursor': 'pointer',
-                                       'fontSize': '12px'
-                                   }),
+                                   disabled=is_pausing,
+                                   style=pause_button_style),
                         html.Button('❌', 
                                    id={'type': 'del-comp-btn', 'proc': device, 'comp': node}, 
                                    disabled=True,
@@ -931,21 +1052,25 @@ def handle_actions(add_proc_clicks, del_proc_clicks, add_comp_clicks, del_comp_c
             pass
         elif tid['type'] == 'run-comp-btn':
             device, comp = tid['proc'], tid['comp']
+            # Set loading state for run action
+            _set_loading_state(device, comp, 'run')
             msg = {"command": "up", "app": comp}
-            r.publish("orchestrator-control", json.dumps(msg))
+            r.publish(f"{device}-orchestrator", json.dumps(msg))
             logger.debug(f"Setting {device}:{comp} to running")
 
         elif tid['type'] == 'pause-comp-btn':
             device, comp = tid['proc'], tid['comp']
+            # Set loading state for pause action
+            _set_loading_state(device, comp, 'pause')
             msg = {"command": "down", "app": comp}
-            r.publish("orchestrator-control", json.dumps(msg))
+            r.publish(f"{device}-orchestrator", json.dumps(msg))
             logger.debug(f"Setting {device}:{comp} to paused")
 
         elif tid['type'] == 'del-proc-btn':
             device, comp = tid['proc'], tid['comp']
             msg = {"command": "remove", "app": comp}
             r.set(f'devices:{device}:{comp}:status', 'removed')
-            r.publish("orchestrator-control", json.dumps(msg))
+            r.publish(f"{device}-orchestrator", json.dumps(msg))
             logger.debug(f"Deleted device: {device}")
 
             # elif tid['type'] == 'del-comp-btn':
