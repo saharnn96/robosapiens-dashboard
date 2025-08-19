@@ -642,6 +642,7 @@ def update_processors(_):
     for device in device_names:
         heartbeat = r.get(f"devices:{device}:heartbeat")
         logger.debug(f"{device} heartbeat: {heartbeat}")
+        device_is_offline = False
         try:
             if heartbeat:
                 now = time.time()
@@ -653,17 +654,28 @@ def update_processors(_):
                 else:
                     online_status = "🔴 Offline"
                     online_color = "red"
+                    device_is_offline = True
             else:
                 online_status = "🔴 Offline (no heartbeat)"
                 online_color = "red"
+                device_is_offline = True
         except Exception as e:
             logger.warning(f"Exception for {device} heartbeat: {e}")
             online_status = "Unknown"
             online_color = "gray"
+            device_is_offline = True
 
         # Get components for this device
         nodes = r.lrange(f"devices:{device}:nodes", 0, -1)
         logger.debug(f"{device} nodes: {nodes}")
+        
+        # If device is offline, set all its nodes to stopped
+        if device_is_offline and nodes:
+            logger.info(f"Device {device} is offline, setting all nodes to stopped")
+            for node in nodes:
+                r.set(f"devices:{device}:{node}:status", "stopped")
+                logger.debug(f"Set {device}:{node} status to stopped due to device offline")
+        
         running_count = 0
         comp_list = []
         for node in nodes:
@@ -675,6 +687,12 @@ def update_processors(_):
                 status_color = "green"
                 running_count += 1
             elif status == "exited":
+                status_text = "⏸️ Stopped"
+                status_color = "orange"
+            elif status == "paused":
+                status_text = "⏸️ Paused"
+                status_color = "orange"
+            elif status == "stopped":
                 status_text = "⏸️ Stopped"
                 status_color = "orange"
             else:
